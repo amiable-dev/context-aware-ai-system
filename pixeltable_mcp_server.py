@@ -73,13 +73,22 @@ class PixeltableMemoryServer:
         
         return [dict(row) for row in matches.collect()]
     
-    async def get_adrs(self, topic: Optional[str] = None, limit: int = 5) -> List[Dict[str, Any]]:
+    async def get_adrs(
+        self,
+        topic: Optional[str] = None,
+        service: Optional[str] = None,
+        limit: int = 5
+    ) -> List[Dict[str, Any]]:
         """Get Architectural Decision Records"""
         
         if not self.kb:
             return []
         
         adrs = self.kb.where(self.kb.is_adr == True)
+        
+        # Filter by service if specified
+        if service:
+            adrs = adrs.where(self.kb.metadata['service'] == service)
         
         if topic:
             sim = adrs.content.similarity(topic)
@@ -250,6 +259,10 @@ async def serve():
                         "topic": {
                             "type": "string",
                             "description": "Optional topic to filter ADRs (e.g., 'authentication', 'database')"
+                        },
+                        "service": {
+                            "type": "string",
+                            "description": "Optional service/project name to filter ADRs (e.g., 'auth-service')"
                         },
                         "limit": {
                             "type": "integer",

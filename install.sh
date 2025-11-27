@@ -13,19 +13,31 @@ echo -e "${BLUE}Context-Aware AI System Installer${NC}"
 echo -e "${BLUE}================================${NC}"
 echo ""
 
+echo -e "${YELLOW}Prerequisites:${NC}"
+echo "- Claude Code with CLI installed"
+echo "- Python 3.8+"
+echo ""
+
 # Check if Claude Code CLI is installed
 if ! command -v claude &> /dev/null; then
-    echo -e "${RED}Error: Claude Code CLI not found${NC}"
-    echo "Please install Claude Code first: https://code.claude.com"
+    echo -e "${RED}✗ Error: Claude Code CLI not found${NC}"
+    echo ""
+    echo "Please install Claude Code first:"
+    echo "  https://code.claude.com"
+    echo ""
+    echo "After installing Claude Code, the 'claude' CLI should be available."
     exit 1
 fi
+echo -e "${GREEN}✓ Claude Code CLI found${NC}"
 
 # Check if Python is installed
 if ! command -v python3 &> /dev/null && ! command -v python &> /dev/null; then
-    echo -e "${RED}Error: Python not found${NC}"
+    echo -e "${RED}✗ Error: Python not found${NC}"
     echo "Please install Python 3.8 or higher"
     exit 1
 fi
+echo -e "${GREEN}✓ Python found${NC}"
+echo ""
 
 # Determine Python command
 PYTHON_CMD="python3"
