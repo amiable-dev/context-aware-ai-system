@@ -41,8 +41,16 @@ try:
     
     # Count by type (code, decision, incident, etc.)
     print('By type:')
-    for row in kb.select(kb.type).group_by(kb.type).order_by(kb.type):
-        type_name = row['type']
+    # Note: Must call .collect() to execute the query
+    type_groups = kb.select(kb.type).group_by(kb.type).order_by(kb.type).collect()
+    
+    # Get unique types to count them
+    unique_types = set()
+    for row in type_groups:
+        if row.get('type'):
+            unique_types.add(row['type'])
+    
+    for type_name in sorted(unique_types):
         count = kb.where(kb.type == type_name).count()
         print(f'  {type_name}: {count:,}')
     
