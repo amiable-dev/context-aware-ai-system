@@ -446,15 +446,16 @@ docker-compose logs pixeltable-memory | grep "Query took"
 
 **Important**: Pixeltable does NOT automatically detect filesystem changes. You must manually re-ingest when code changes.
 
-```bash
-# Option 1: Use helper script (recommended)
-./scripts/ingest.sh
+**Option 1: Ask Claude (Recommended)**
+> "Re-ingest this codebase"
 
-# Option 2: Direct command
-docker-compose exec pixeltable-memory python -c "
-from pixeltable_setup import setup_knowledge_base, ingest_codebase
-kb = setup_knowledge_base()
-ingest_codebase(kb, '/repos', 'your-service-name')
+**Option 2: Use MCP Tool**
+```python
+ingest_codebase(repo_path=os.getcwd(), service_name="auth-service")
+```
+
+**Option 3: Git Hooks (Advanced)**
+See `multi-project-architecture.md` for setting up async git hooks.
 "
 ```
 

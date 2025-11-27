@@ -346,7 +346,9 @@ kb.add_computed_column(is_adr=is_adr(kb.path, kb.content))
 - **Simplified stack**: Replaced PostgreSQL + pgvector + S3 + Airflow → 1 library
 - **Audit trail**: Built-in lineage tracking for compliance
 
-**Production reality**: Manual re-ingestion still required when files change on disk (Pixeltable doesn't watch filesystem). We automate via git hooks (see [CONTRIBUTING.md](CONTRIBUTING.md#automation-opportunities)).
+**Production reality**: Manual re-ingestion still required when files change on disk (Pixeltable doesn't watch filesystem). We automate this via:
+1. **Conversational MCP Tools**: "Re-ingest this codebase" (Ad-hoc)
+2. **Git Hooks**: `post-merge` hooks for team automation (see [CONTRIBUTING.md](CONTRIBUTING.md#automation-opportunities))
 
 ## Workflow Visualization: Incremental Computation
 

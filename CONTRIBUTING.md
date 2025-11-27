@@ -76,11 +76,8 @@ A key challenge with persistent knowledge bases is keeping them current. Here ar
 # .git/hooks/post-merge
 #!/bin/bash
 if [ "$(git rev-parse --abbrev-ref HEAD)" = "main" ]; then
-  docker-compose exec -T pixeltable-memory python -c "
-  from pixeltable_setup import setup_knowledge_base, ingest_codebase
-  kb = setup_knowledge_base()
-  ingest_codebase(kb, '/repos', 'your-service')
-  " &
+  # Trigger ingestion via helper script (background)
+  ~/.mcp-servers/context-aware-ai-system/scripts/ingest.sh &
 fi
 ```
 
@@ -92,12 +89,10 @@ fi
 # .git/hooks/post-tag
 #!/bin/bash
 TAG_NAME=$(git describe --tags)
-docker-compose exec -T pixeltable-memory python -c "
-from pixeltable_setup import snapshot_knowledge_base, ingest_codebase
-snapshot_knowledge_base(name='release-${TAG_NAME}', tags=['release'])
-kb = setup_knowledge_base()
-ingest_codebase(kb, '/repos', 'your-service')
-"
+# Create snapshot via MCP tool (conceptually)
+# In practice, use the helper script which now supports snapshots
+~/.mcp-servers/context-aware-ai-system/scripts/snapshot.sh "$TAG_NAME"
+
 ```
 
 **Trigger**: Git tag created (release)  
@@ -133,11 +128,8 @@ Monitor `docs/adr/` for new ADRs:
 ```bash
 # .git/hooks/post-commit
 git diff --name-only HEAD~1 HEAD | grep 'docs/adr/.*\.md' | while read file; do
-  docker-compose exec -T pixeltable-memory python -c "
-  from pixeltable_setup import setup_knowledge_base, ingest_adr
-  kb = setup_knowledge_base()
-  ingest_adr(kb, '/repos/${file}', 'ADR: $(basename ${file})')
-  "
+  # Ingest ADR via helper script
+  ~/.mcp-servers/context-aware-ai-system/scripts/ingest_adr.sh "$file" &
 done
 ```
 
@@ -147,26 +139,9 @@ done
 
 ```bash
 # crontab: Run nightly at 2 AM
-0 2 * * * /path/to/sync-knowledge-base.sh
+0 2 * * * ~/.mcp-servers/context-aware-ai-system/scripts/ingest-all-projects.sh
 ```
 
-```bash
-# sync-knowledge-base.sh
-#!/bin/bash
-docker-compose exec -T pixeltable-memory python -c "
-from pixeltable_setup import setup_knowledge_base, ingest_codebase, snapshot_knowledge_base
-from datetime import datetime
-
-kb = setup_knowledge_base()
-ingest_codebase(kb, '/repos', 'my-service')
-
-# Weekly snapshot on Sundays
-if [ $(date +%u) -eq 7 ]; then
-  snapshot_name=\"weekly-$(date +%Y-%m-%d)\"
-  snapshot_knowledge_base(name=\$snapshot_name, tags=['weekly'])
-fi
-"
-```
 
 **Benefit**: Catches anything missed by other triggers
 

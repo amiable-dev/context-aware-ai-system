@@ -203,15 +203,11 @@ You've never worked on `notifications-worker` before:
 ### Pixeltable Memory Storage
 
 **Ingestion** (you control when):
+> "Ingest this codebase as 'auth-service'"
+
+Or via MCP tool:
 ```python
-from pixeltable_setup import setup_knowledge_base, ingest_codebase
-
-kb = setup_knowledge_base()
-
-# Ingest each project with unique identifier
-ingest_codebase(kb, '/Users/you/auth-service', 'auth-service')
-ingest_codebase(kb, '/Users/you/payment-api', 'payment-api')
-ingest_codebase(kb, '/Users/you/web-app', 'web-app')
+ingest_codebase(repo_path='/Users/you/auth-service', service_name='auth-service')
 ```
 
 **Schema** (how it's stored):
@@ -310,11 +306,14 @@ cd ~/.mcp-servers/context-aware-ai-system
 
 ### 2. Ingest All Projects
 
+Ask Claude Code to ingest each project:
+
+> "Ingest this codebase as 'my-service'"
+
+Or use the helper script for batch ingestion:
+
 ```bash
 cd ~/.mcp-servers/context-aware-ai-system
-
-# Edit scripts/ingest-all-projects.sh with your repos
-# Then run it
 ./scripts/ingest-all-projects.sh
 ```
 
