@@ -55,7 +55,7 @@ class PixeltableMemoryServer:
             )
         
         # Semantic similarity search
-        sim = results.content.similarity(query)
+        sim = self.kb.content.similarity(query)
         
         matches = (
             results.order_by(sim, asc=False)
@@ -716,6 +716,7 @@ async def serve():
                     limit=arguments.get("limit", 3)
                 )
             
+            elif name == "get_service_overview":
                 result = await memory.get_service_context(
                     service=arguments["service"]
                 )
