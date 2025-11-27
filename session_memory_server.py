@@ -27,7 +27,7 @@ class SessionMemoryServer:
     def __init__(self, repo_path: Optional[str] = None):
         """Initialize with repository path"""
         if repo_path is None:
-            repo_path = os.getcwd()
+            repo_path = os.environ.get("REPO_PATH", os.getcwd())
         
         self.repo_path = Path(repo_path)
         try:
