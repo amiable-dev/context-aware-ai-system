@@ -1,5 +1,16 @@
 # Multi-Project Memory Architecture: How Context-Aware AI Scales Across Your Organization
 
+## What You Need to Know
+
+This article describes a local-first AI memory system using:
+
+- **[Claude Code](https://code.claude.com)**: Anthropic's AI coding assistant with CLI and IDE integration
+- **[Pixeltable](https://pixeltable.readme.io/)**: An open-source Python library that creates local, queryable views over multimodal data (code, documents, media) with built-in semantic search
+- **Session Memory**: Real-time git context queries (NOT chat history) - a thin MCP wrapper over `gitpython` that exposes git operations as tools
+- **[Model Context Protocol (MCP)](https://modelcontextprotocol.io/)**: A standardized protocol for exposing local tools to AI assistants (think "LSP for AI agents")
+
+**Privacy Note**: All data stays on your machine. Embeddings are generated locally via HuggingFace's sentence-transformers. No code is sent to external APIs.
+
 ## The Multi-Project Challenge
 
 Most organizations maintain multiple code repositories:
@@ -46,7 +57,7 @@ Our Context-Aware AI System uses a **hybrid architecture** that separates concer
 
 **How it works**:
 - **Automatically project-aware**: No configuration needed
-- When Claude Code opens `/Users/you/auth-service/`, session memory analyzes that repo
+- When Claude Code opens `/Users/you/auth-service/`, session memory queries that repo's git history
 - Switch to `/Users/you/payment-api/`? Session memory automatically switches
 
 **Query examples** (all project-specific):
@@ -93,6 +104,50 @@ Our Context-Aware AI System uses a **hybrid architecture** that separates concer
 ```
 
 **Speed**: 100-500ms (semantic search with embeddings)
+*Benchmarked on M1/M2 MacBook with ~50k files.*
+
+## Security & Privacy
+
+**Where does your code go?**
+
+✅ **Everything stays local**:
+- Knowledge base stored at `~/.pixeltable/` on your machine
+- Embeddings generated locally via `sentence-transformers/all-MiniLM-L6-v2` (HuggingFace)
+- Git queries execute locally via `gitpython`
+- **Zero data sent to OpenAI, Anthropic, or any external service**
+
+**Authentication tokens**: Only used for Claude Code itself (your existing Anthropic API key). The MCP servers do NOT send data externally.
+
+**Why this matters**: Regulated industries (healthcare, finance) can use this without data leaving their infrastructure. Your proprietary code never touches external APIs.
+
+**Optional**: If you use OpenAI for enhanced summaries in Pixeltable (set `OPENAI_API_KEY`), only summaries are generated externally, not full code.
+
+## Deployment: Local vs. Shared
+
+**Default deployment** (this article): **Local-only**
+- Pixeltable database lives on your laptop at `~/.pixeltable/`
+- Fast setup, zero infrastructure
+- **Limitation**: Teammates won't see your ingestions
+
+**Team deployment** (advanced): **Shared Postgres backend**
+- Pixeltable supports PostgreSQL as a backend
+- Deploy centralized Pixeltable instance (e.g., on internal server)
+- Requires: Setting `PIXELTABLE_DB_URL` to shared Postgres connection string
+- Benefit: Entire team shares organizational knowledge
+
+This article focuses on **local deployment** for simplicity. For team setups, see [Pixeltable multi-user docs](https://pixeltable.readme.io/).
+
+## When to Use Each Tier
+
+| Query Type | Use Session Memory | Use Pixeltable Memory |
+|------------|-------------------|----------------------|
+| **"What changed recently?"** | ✅ Current project git | ❌ |
+| **"Show current branch status"** | ✅ Current project state | ❌ |
+| **"Find files containing X"** | ✅ Current project grep | ❌ |
+| **"How did we solve Y in the past?"** | ❌ | ✅ All projects |
+| **"What ADRs exist about Z?"** | ❌ | ✅ Cross-project ADRs |
+| **"Have we had incidents with W?"** | ❌ | ✅ All incident history |
+| **"Why was this decision made?"** | ✅ If recent commit | ✅ If older ADR/discussion |
 
 ## Practical Workflows
 
@@ -101,7 +156,7 @@ Our Context-Aware AI System uses a **hybrid architecture** that separates concer
 You open Claude Code in `auth-service` and ask:
 
 **"What changed recently in this repo?"**
-- ✅ Session Memory → Analyzes `auth-service/.git/`
+- ✅ Session Memory → Queries `auth-service/.git/` in real-time
 - Returns: Last 10 commits in auth-service only
 
 **"How did we implement OAuth2 in other services?"**
@@ -129,7 +184,7 @@ Working in `payment-api`, debugging a timeout issue:
 You've never worked on `notifications-worker` before:
 
 **"What does this service do?"**
-- ✅ Session Memory → Analyzes README, recent commits
+- ✅ Session Memory → Queries README, recent commits in real-time
 - Returns: Current project structure and recent activity
 
 **"What architectural patterns does our org use for workers?"**
@@ -202,18 +257,6 @@ The Pixeltable MCP tools support optional project filtering:
 
 **Without filter**: Searches across all projects (default, often what you want)
 **With filter**: Scopes search to specific project (useful for targeted queries)
-
-## When to Use Each Tier
-
-| Query Type | Use Session Memory | Use Pixeltable Memory |
-|------------|-------------------|----------------------|
-| **"What changed recently?"** | ✅ Current project git | ❌ |
-| **"Show current branch status"** | ✅ Current project state | ❌ |
-| **"Find files containing X"** | ✅ Current project grep | ❌ |
-| **"How did we solve Y in the past?"** | ❌ | ✅ All projects |
-| **"What ADRs exist about Z?"** | ❌ | ✅ Org-wide ADRs |
-| **"Have we had incidents with W?"** | ❌ | ✅ All incident history |
-| **"Why was this decision made?"** | ✅ If recent commit | ✅ If older ADR/discussion |
 
 ## Architecture Decision: Why Shared Pixeltable?
 
@@ -297,20 +340,62 @@ code .
 # - "How do we handle auth?" → same search, different project context
 ```
 
-## Maintenance
+## Maintenance & Data Synchronization
 
 **When to re-ingest**:
 - After major refactors
 - When adding new ADRs
 - After significant code changes
 
-**Automation** (recommended):
+### Automation Recommendations
+
+**⚠️ WARNING: Synchronous git hooks can block your terminal**
+
+Embedding generation is CPU-intensive. Running `ingest.sh` synchronously in a git hook will freeze your terminal during large merges.
+
+**Recommended approaches**:
+
+**Option 1: Background process** (quick fix):
 ```bash
 # Git hook: .git/hooks/post-merge
 if [ "$(git rev-parse --abbrev-ref HEAD)" = "main" ]; then
-  ~/.mcp-servers/context-aware-ai-system/scripts/ingest.sh &
+  ~/.mcp-servers/context-aware-ai-system/scripts/ingest.sh &  # ← Note the & for background
 fi
 ```
+
+**Option 2: CI/CD pipeline** (team setup):
+```yaml
+# GitHub Actions example
+on:
+  push:
+    branches: [main]
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - run: ./scripts/ingest.sh
+      # Push to shared Pixeltable instance
+```
+
+### Stale Data & Deletions
+
+**The Problem**: Deleting code doesn't automatically remove it from Pixeltable.
+
+**Scenario**: You delete `deprecated-auth` service. The vector store still contains its code. Claude may reference "ghost code" that no longer exists.
+
+**Solution**: `ingest_codebase()` does NOT prune deleted files automatically.
+
+**Recommended**:
+- **Periodic clean rebuilds**: Drop and recreate the knowledge base monthly
+  ```bash
+  # WARNING: This deletes all ingested data
+  python -c "import pixeltable as pxt; pxt.drop_dir('org_knowledge', force=True)"
+  ./scripts/ingest-all-projects.sh  # Re-ingest from scratch
+  ```
+- **Manual pruning**: Track deleted services and remove their rows:
+  ```python
+  kb.delete(kb.metadata['service'] == 'deprecated-auth')
+  ```
 
 ## Performance Characteristics
 
@@ -320,6 +405,37 @@ fi
 | Session memory: File search | <50ms | Current project |
 | Pixeltable: Semantic search | 100-500ms | All projects |
 | Pixeltable: ADR retrieval | 50-200ms | All projects |
+
+*Benchmarked on M1/M2 MacBook with ~50k files.*
+
+## Limitations & Troubleshooting
+
+**Large Monorepos**:
+- Multi-GB repositories may take 10+ minutes for initial ingestion
+- Embedding generation is CPU-bound (hundreds of files per minute)
+- Recommendation: Exclude non-code directories (`node_modules`, `vendor`, `.venv`)
+
+**Binary Files**:
+- Images, videos, compiled binaries are NOT indexed (text embeddings only)
+- Pixeltable supports multimodal indexing but requires explicit configuration
+
+**Initial Setup Time**:
+- First ingestion of 50k files: ~5-10 minutes
+- Subsequent updates: Only changed files re-processed (much faster)
+
+**Local-Only by Default**:
+- Pixeltable runs on YOUR machine
+- Teammates don't see your ingestions unless deploying shared backend
+- For team knowledge sharing, see "Deployment: Local vs. Shared" section
+
+**No Real-Time Filesystem Watching**:
+- Pixeltable doesn't auto-detect file changes on disk
+- You must manually re-run `ingest_codebase()` after code changes
+- Recommendation: Use git hooks or CI/CD automation
+
+**Stale Embeddings**:
+- If you edit a file but don't re-ingest, Claude sees outdated content
+- Keep ingestion frequency aligned with development velocity
 
 ## The Bottom Line
 
