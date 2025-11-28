@@ -269,7 +269,9 @@ def ingest_codebase(kb, repo_path: str, service_name: str, extensions: set = Non
                 if len(batch) >= 100:
                     kb.insert(batch)
                     batch = []
-                    print(f"  Ingested {files_ingested} files...")
+                    import sys
+                    print(f"  Ingested {files_ingested} files...", flush=True)
+                    sys.stdout.flush()  # Ensure output is visible in MCP logs
                     
             except Exception as e:
                 print(f"  Skipping {relative_path}: {e}")
@@ -437,31 +439,35 @@ def delete_service_data(kb, service_name: str):
     """
     Delete all data for a specific service.
     
-    Uses row-by-row deletion since JSON filtering (metadata['service'] == X)
-    is not expressible in SQL in all Pixeltable versions.
+    Uses path-based deletion since:
+    - JSON filtering (metadata['service'] == X) not SQL-expressible
+    - _rowid column doesn't exist in Pixeltable
     """
     
-    # Get all rows with their IDs and metadata
-    all_rows = kb.select(kb._rowid, kb.metadata).collect()
+    # Get all rows with paths and metadata
+    all_rows = kb.select(kb.path, kb.metadata).collect()
     
-    # Find row IDs to delete
-    rows_to_delete = [
-        row['_rowid'] for row in all_rows
+    # Find paths to delete
+    paths_to_delete = [
+        row['path'] for row in all_rows
         if isinstance(row.get('metadata'), dict) 
         and row['metadata'].get('service') == service_name
     ]
     
-    if not rows_to_delete:
+    if not paths_to_delete:
         return {'deleted': 0, 'service': service_name, 'message': 'No data found'}
     
-    # Delete rows by ID
-    for row_id in rows_to_delete:
-        kb.delete(kb._rowid == row_id)
+    # Delete rows by path (path should be unique)
+    for path in paths_to_delete:
+        try:
+            kb.delete(kb.path == path)
+        except Exception as e:
+            print(f"Warning: Failed to delete {path}: {e}")
     
     return {
-        'deleted': len(rows_to_delete),
+        'deleted': len(paths_to_delete),
         'service': service_name,
-        'message': f'Deleted {len(rows_to_delete)} items from service {service_name}'
+        'message': f'Deleted {len(paths_to_delete)} items from service {service_name}'
     }
 
 
