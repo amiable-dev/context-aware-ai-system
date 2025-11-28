@@ -11,6 +11,33 @@ from mcp.types import Tool, TextContent
 import pixeltable as pxt
 import json
 from typing import Optional, List, Dict, Any
+from pathlib import Path
+import os
+import logging
+from datetime import datetime
+
+# Configurable debug logging
+# Set PIXELTABLE_MCP_DEBUG=1 to enable detailed logging
+DEBUG_ENABLED = os.getenv('PIXELTABLE_MCP_DEBUG', '0') == '1'
+
+if DEBUG_ENABLED:
+    log_dir = Path.home() / '.mcp-servers' / 'logs'
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / 'pixeltable-memory.log'
+    
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s [%(levelname)s] %(message)s',
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler()  # Also print to stderr
+        ]
+    )
+    logging.info(f"Debug logging enabled. Log file: {log_file}")
+else:
+    logging.basicConfig(level=logging.WARNING)
+
+logger = logging.getLogger(__name__)
 
 
 class PixeltableMemoryServer:
@@ -217,21 +244,33 @@ class PixeltableMemoryServer:
         extensions: list = None
     ) -> Dict[str, Any]:
         """Ingest code files from a repository"""
+        logger.debug(f"ingest_codebase called: repo_path={repo_path}, service={service_name}, extensions={extensions}")
+        
         if not self.kb:
             return {'error': 'Knowledge base not initialized'}
         
         from pixeltable_setup import ingest_codebase
+        import time
+        start_time = time.time()
+        
         try:
             # Convert list to set if provided
             ext_set = set(extensions) if extensions else None
+            logger.debug(f"Starting ingestion from {repo_path}...")
             count = ingest_codebase(self.kb, repo_path, service_name, extensions=ext_set)
-            return {
+            duration = time.time() - start_time
+            logger.info(f"Ingested {count} files from {service_name} in {duration:.1f}s")
+            result = {
                 'success': True,
                 'files_ingested': count,
                 'service': service_name,
-                'repo_path': repo_path
+                'repo_path': repo_path,
+                'duration_seconds': duration
             }
+            logger.debug(f"Ingestion result: {result}")
+            return result
         except Exception as e:
+            logger.error(f"Ingestion failed: {e}", exc_info=True)
             return {'success': False, 'error': str(e)}
     
     async def ingest_adr_data(

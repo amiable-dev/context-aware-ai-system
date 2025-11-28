@@ -62,6 +62,30 @@ ingest_codebase(
 )
 ```
 
+#### Debug Logging
+
+For troubleshooting, enable detailed logging:
+
+```bash
+# In your shell config (~/.zshrc or ~/.bashrc)
+export PIXELTABLE_MCP_DEBUG=1
+
+# Then restart Claude Code
+```
+
+Logs written to: `~/.mcp-servers/logs/pixeltable-memory.log`
+
+Shows:
+- Exact paths being ingested
+- File counts and timing
+- Error details
+- MCP call parameters
+
+**Disable** by unsetting the variable:
+```bash
+unset PIXELTABLE_MCP_DEBUG
+```
+
 ### 4. Add Historical Context
 
 > "Add this ADR to the knowledge base"
