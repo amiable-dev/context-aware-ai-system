@@ -398,22 +398,29 @@ def get_knowledge_stats(kb):
         if count > 0:
             type_counts[type_val] = count
     
-    # Count by service
+    # Count by service - use correct key name
     services = kb.select(kb.metadata['service']).collect()
-    unique_services = set(s['service'] for s in services if s.get('service'))
+    unique_services = set(
+        s['metadata_service'] for s in services 
+        if s.get('metadata_service')  # Pixeltable returns 'metadata_service' not 'service'
+    )
     
     return {
         'total_items': total_items,
         'by_type': type_counts,
         'services_count': len(unique_services),
-        'services': list(unique_services)
+        'services': sorted(list(unique_services))
     }
 
 
 def list_services(kb):
     """List all unique service names in the knowledge base"""
+    # When selecting kb.metadata['service'], Pixeltable returns key as 'metadata_service'
     services = kb.select(kb.metadata['service']).collect()
-    unique_services = sorted(set(s['service'] for s in services if s.get('service')))
+    unique_services = sorted(set(
+        s['metadata_service'] for s in services 
+        if s.get('metadata_service')  # Note: key is 'metadata_service', not 'service'
+    ))
     return unique_services
 
 

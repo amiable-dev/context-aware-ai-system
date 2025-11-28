@@ -125,19 +125,29 @@ try:
     print()
     
     # List all unique services and their item counts
+    # Services are tagged via metadata during ingestion
+    # Note: Pixeltable returns 'metadata_service' as the key name, not 'service'
     print('🏢 By Service:')
     services = kb.select(kb.metadata['service']).collect()
-    unique_services = sorted(set(s['service'] for s in services if s.get('service')))
+    unique_services = sorted(set(s['metadata_service'] for s in services if s.get('metadata_service')))
     
     for service in unique_services:
-        count = kb.where(kb.metadata['service'] == service).count()
+        # Count items for this service by iterating collected rows
+        # (JSON filtering in SQL not supported in all Pixeltable versions)
+        service_rows = [s for s in services if s.get('metadata_service') == service]
+        count = len(service_rows)
         
-        # Get latest entry for this service
+        # Get latest entry for this service from full table
         try:
-            latest = kb.where(kb.metadata['service'] == service).order_by(kb.created_at, asc=False).limit(1).collect()[0]
-            latest_time = latest['created_at'].strftime('%Y-%m-%d %H:%M')
-            print(f'  {service:30s}: {count:4,} items (latest: {latest_time})')
-        except:
+            all_rows = kb.order_by(kb.created_at, asc=False).select(kb.created_at, kb.metadata).collect()
+            for row in all_rows:
+                if isinstance(row.get('metadata'), dict) and row['metadata'].get('service') == service:
+                    latest_time = row['created_at'].strftime('%Y-%m-%d %H:%M')
+                    print(f'  {service:30s}: {count:4,} items (latest: {latest_time})')
+                    break
+            else:
+                print(f'  {service:30s}: {count:4,} items')
+        except Exception as e:
             print(f'  {service:30s}: {count:4,} items')
     
     print()
