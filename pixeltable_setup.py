@@ -214,6 +214,7 @@ def ingest_codebase(kb, repo_path: str, service_name: str, extensions: set = Non
     }
     
     files_ingested = 0
+    batch = []  # Collect files for batch insertion
     
     for root, dirs, files in os.walk(repo_path):
         root_path = Path(root)
@@ -248,7 +249,8 @@ def ingest_codebase(kb, repo_path: str, service_name: str, extensions: set = Non
                 # Determine type
                 file_type = 'documentation' if file.endswith('.md') else 'code'
                 
-                kb.insert([{
+                # Add to batch instead of inserting immediately
+                batch.append({
                     'type': file_type,
                     'path': str(relative_path),
                     'content': content,
@@ -259,15 +261,22 @@ def ingest_codebase(kb, repo_path: str, service_name: str, extensions: set = Non
                         'language': file.split('.')[-1],
                         'absolute_path': str(file_path)
                     }
-                }])
+                })
                 
                 files_ingested += 1
                 
-                if files_ingested % 10 == 0:
+                # Insert in batches of 100 for better performance
+                if len(batch) >= 100:
+                    kb.insert(batch)
+                    batch = []
                     print(f"  Ingested {files_ingested} files...")
                     
             except Exception as e:
                 print(f"  Skipping {relative_path}: {e}")
+    
+    # Insert any remaining items in the batch
+    if batch:
+        kb.insert(batch)
     
     print(f"✓ Ingested {files_ingested} files from {service_name}")
     return files_ingested
