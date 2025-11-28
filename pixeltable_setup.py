@@ -138,7 +138,24 @@ def ingest_codebase(kb, repo_path: str, service_name: str):
     repo_path = Path(repo_path)
     
     # File extensions to include
-    extensions = {'.py', '.js', '.ts', '.tsx', '.jsx', '.go', '.java', '.md', '.yaml', '.yml'}
+    extensions = {
+        # Python
+        '.py', 
+        # JavaScript/TypeScript/Web
+        '.js', '.ts', '.tsx', '.jsx', '.html', '.css', '.json',
+        # Rust
+        '.rs', '.toml',
+        # Go
+        '.go',
+        # Java/JVM
+        '.java', '.kt', '.scala',
+        # C/C++
+        '.c', '.cpp', '.h', '.hpp',
+        # Shell
+        '.sh',
+        # Data/Config
+        '.md', '.yaml', '.yml', '.sql', '.xml', '.ini', '.conf'
+    }
     
     # Directories to skip
     skip_dirs = {
