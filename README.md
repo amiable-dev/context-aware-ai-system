@@ -31,16 +31,27 @@ A hybrid approach combining session memory, long-term persistent knowledge, and 
 # Clone to a standard location (system-wide MCP servers)
 git clone https://github.com/your-org/context-aware-ai-system.git ~/.mcp-servers/context-aware-ai-system
 cd ~/.mcp-servers/context-aware-ai-system
-
-# Run installer (sets up user-scope MCP servers)
-./install.sh
 ```
 
-The installer will:
+### 1. Run the Installer
+
+```bash
+cd /path/to/luminescent-cluster
+./install.sh
+
+# Or with debug logging enabled:
+./install.sh --debug
+```
+
+This will:
 - Install Python dependencies
 - Configure MCP servers in Claude Code (user scope)
 - Initialize Pixeltable knowledge base
 - Make servers available across all your projects
+
+**Options**:
+- `--debug`: Enable debug logging (logs to `~/.mcp-servers/logs/pixeltable-memory.log`)
+- `--help`: Show usage information
 
 ### 2. Restart Claude Code
 

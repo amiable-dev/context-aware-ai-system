@@ -8,10 +8,49 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+# Parse command line arguments
+ENABLE_DEBUG=0
+
+show_usage() {
+    echo "Usage: $0 [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  --debug       Enable debug logging for MCP servers"
+    echo "  -h, --help    Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0              # Install without debug logging (default)"
+    echo "  $0 --debug      # Install with debug logging enabled"
+}
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --debug)
+            ENABLE_DEBUG=1
+            shift
+            ;;
+        -h|--help)
+            show_usage
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $1${NC}"
+            show_usage
+            exit 1
+            ;;
+    esac
+done
+
 echo -e "${BLUE}================================${NC}"
 echo -e "${BLUE}Context-Aware AI System Installer${NC}"
 echo -e "${BLUE}================================${NC}"
 echo ""
+
+if [ "$ENABLE_DEBUG" -eq 1 ]; then
+    echo -e "${YELLOW}⚠ Debug logging ENABLED${NC}"
+    echo -e "${YELLOW}Logs will be written to: ~/.mcp-servers/logs/${NC}"
+    echo ""
+fi
 
 echo -e "${YELLOW}Prerequisites:${NC}"
 echo "- Claude Code with CLI installed"
@@ -69,13 +108,20 @@ echo ""
 # Add pixeltable-memory MCP server
 echo -e "${BLUE}[3/3] Configuring pixeltable-memory MCP server...${NC}"
 
-# Note: To enable debug logging, manually edit ~/.config/claude/config.json after installation
-# and add "env": {"PIXELTABLE_MCP_DEBUG": "1"} to the pixeltable-memory server config
-claude mcp add --transport stdio pixeltable-memory \
-  --scope user \
-  -- $PYTHON_CMD "${SCRIPT_DIR}/pixeltable_mcp_server.py"
-
-echo -e "${GREEN}✓ pixeltable-memory configured${NC}"
+if [ "$ENABLE_DEBUG" -eq 1 ]; then
+    # Install with debug logging enabled
+    claude mcp add --transport stdio pixeltable-memory \
+      --scope user \
+      --env PIXELTABLE_MCP_DEBUG=1 \
+      -- $PYTHON_CMD "${SCRIPT_DIR}/pixeltable_mcp_server.py"
+    echo -e "${GREEN}✓ pixeltable-memory configured with debug logging${NC}"
+else
+    # Install without debug logging (default)
+    claude mcp add --transport stdio pixeltable-memory \
+      --scope user \
+      -- $PYTHON_CMD "${SCRIPT_DIR}/pixeltable_mcp_server.py"
+    echo -e "${GREEN}✓ pixeltable-memory configured${NC}"
+fi
 echo ""
 
 # Initialize Pixeltable knowledge base
